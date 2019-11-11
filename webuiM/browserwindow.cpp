@@ -24,7 +24,8 @@
 #include <QSize>
 #include <QPushButton>
 #include <QTextEdit>
-
+#include <QHttpMultiPart>
+#include <QStringLiteral>
 //n<<QString("configs/network.conf");
 //n<<QString("configs/checkstatus.conf");
 //n<<QString("configs/status_cvbs.conf");
@@ -81,6 +82,7 @@ BrowserWindow::BrowserWindow(Browser *browser, QWebEngineProfile *profile, bool 
     m_playerProcess->setProcessChannelMode(QProcess::MergedChannels);
     m_recordProcess = new QProcess(this);
     m_recordProcess->setProcessChannelMode(QProcess::MergedChannels);
+
     if (!forDevTools) {
         m_progressBar = new QProgressBar(this);
 
@@ -283,6 +285,10 @@ QMenu *BrowserWindow::createEditMenu()
         dlg.setLayout(&glayout);
         //udp recv
         m_udprecvsl.clear();
+        if(m_udprecv != nullptr){
+            delete m_udprecv;
+            m_udprecv = nullptr;
+        }
         m_udprecv  = new QUdpSocket(this);
         m_udprecv->bind(5440,QUdpSocket::ShareAddress);
         connect(m_udprecv,&QUdpSocket::readyRead,[=](){
@@ -339,10 +345,17 @@ QMenu *BrowserWindow::createEditMenu()
             qDebug()<<get_iplst;
             m_browser->bookmarkManagerWidget().writeIni(get_mp,get_iplst);
             m_browser->bookmarkManagerWidget().updateUI();
+            m_tabWidget->setUrl(get_mp);
             delete tex;
             tex = nullptr;
         }
+
+        if(m_udprecv != nullptr){
+            delete m_udprecv;
+            m_udprecv = nullptr;
+        }
     });
+
     editMenu->addAction(bookmarkAction);
 
     /*********************play*video*******************************/
@@ -738,49 +751,30 @@ QMenu *BrowserWindow::createEditMenu()
         if(configsdir.exists()){
             QStringList filelist;
             DEFAULT_CONFIG(filelist);
-            m_quit = 0;
             int i = 0;
-            for(i = 0; i < filelist.size();i++){
-                if(1 == m_quit){
-                    m_quit = 0;
-                    QString str("Upload files failed!!!");
-                    str.resize(40,' ');
-                    QMessageBox::critical(this, tr("Error"),str);
-                    break;
-                }
-                if((nullptr == m_reply) && (nullptr == m_file)){
-                    m_file = new QFile(QApplication::applicationDirPath() + "/"+filelist.at(i),this);
-                    m_file->open(QIODevice::ReadOnly);
-                    QByteArray byte_file = m_file->readAll();
-                    QString qstr_urlLine = m_urlLineEdit->text();
-                    QString qstr_url = qstr_urlLine.section('@',1,1).trimmed().section('/',0,0).trimmed();
-                    QString qstr_fname = filelist.at(i).section('/',1,1).trimmed();
-                    QUrl url(QString("http://root:root@")+qstr_url+"/cgi-bin/conf_upload.cgi?file="+qstr_fname);
-                    qDebug()<<url;
-                    QNetworkRequest request(url);
-                    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
-                    QNetworkAccessManager accessManager(this);
-                    accessManager.setNetworkAccessible(QNetworkAccessManager::Accessible);
-                    m_reply = accessManager.post(request, byte_file);
-                    connect(&accessManager,SIGNAL(finished(QNetworkReply*)), this, SLOT(replyFinished(QNetworkReply*)));
-                    connect((QObject *)m_reply, SIGNAL(error(QNetworkReply::NetworkError)),this,SLOT(loadError(QNetworkReply::NetworkError)));
-                    connect((QObject *)m_reply, SIGNAL(downloadProgress(qint64 ,qint64)), this, SLOT(loadProgress(qint64 ,qint64)));
-                    QEventLoop eventLoop;
-                    connect(&accessManager, SIGNAL(finished(QNetworkReply*)), &eventLoop, SLOT(quit()));
-                    eventLoop.exec();
-                    QMSLEEP(1);
-                }else{
-                    QString str("Upload files failed!!!");
-                    str.resize(40,' ');
-                    QMessageBox::critical(this, tr("Error"),str);
-                    break;
-                }
+            for(i = 0; i < filelist.size();i++){             
+                QString qstr_urlLine = m_urlLineEdit->text();
+                QString qstr_url = qstr_urlLine.section('@',1,1).trimmed().section('/',0,0).trimmed();
+                QString apppath = QString(QApplication::applicationDirPath());
+
+#if defined(Q_OS_WIN)
+                QString curlth =  apppath+"/curl.exe";
+#else
+                QString curlth =  apppath+"/curl";
+#endif
+                QString confpath =  QString("file=@"+apppath+"/"+filelist.at(i));
+                QString httpurl = QString("http://root:root@")+qstr_url+"/cgi-bin/conf_upload.cgi";
+                QStringList argls;
+                argls.append("-F");
+                argls.append(confpath);
+                argls.append(httpurl);
+                qDebug() << argls;
+                QProcess::execute(curlth,argls);
             }
-            if(i == filelist.size()){
-                QString str("Upload files success!!!");
-                str.resize(40,' ');
-                QMessageBox::information(this, tr("Success"),str);
-            }
+
+            QString str("Upload files success!!!");
+            str.resize(40,' ');
+            QMessageBox::information(this, tr("Success"),str);
         }else{
             QString str("Upload files not exists!!!");
             str.resize(40,' ');
@@ -1293,3 +1287,7 @@ page down/page up   seek backward/forward 10 minutes
 right mouse click   seek to percentage in file corresponding to fraction of width
 left double-click   toggle full screen
  */
+
+
+// curl.exe  -F "file=@audioencode.conf" -i http://root:root@192.168.1.234/cgi-bin/conf_upload.cgi
+

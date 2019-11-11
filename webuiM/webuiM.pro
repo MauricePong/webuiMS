@@ -1,6 +1,8 @@
 TEMPLATE = app
 TARGET = webuiM
 QT += webenginewidgets
+QT += network
+CONFIG += c++11
 
 HEADERS += \
     bookmarkmanagerwidget.h \
@@ -33,7 +35,7 @@ FORMS += \
     downloadwidget.ui
 
 RESOURCES += data/webuiM.qrc
-RC_FILE   = data/AppLogoColor.rc
+RC_FILE   += data/AppLogoColor.rc
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
