@@ -85,6 +85,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, "recv error or end\n");
         }else{
 			if(NULL != strstr(buff,"getip")){
+				get_local_ip("eth0",localhostip);
 				//peer.sin_addr.s_addr = inet_addr(localhostip); // 0.0.0.0
         		peer.sin_port = htons(5440);
             	bzero(buff,1024);

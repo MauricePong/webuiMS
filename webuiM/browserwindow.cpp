@@ -267,8 +267,8 @@ QMenu *BrowserWindow::createEditMenu()
         glayout.addWidget(&btn,0,0,1,4);
         QLabel mplab(tr("MainPage IP:"),this);
         glayout.addWidget(&mplab,1,0,1,1);
-        QLineEdit lin(mptex,this);
-        glayout.addWidget(&lin,1,1,1,3);
+        QLineEdit *plin = new QLineEdit(mptex,this);
+        glayout.addWidget(plin,1,1,1,3);
         QLabel lab(tr("Multiple Devcie IP:"),this);
         glayout.addWidget(&lab,2,0,1,1);
         QTextEdit *tex = new QTextEdit(this);
@@ -290,7 +290,9 @@ QMenu *BrowserWindow::createEditMenu()
             m_udprecv = nullptr;
         }
         m_udprecv  = new QUdpSocket(this);
-        m_udprecv->bind(5440,QUdpSocket::ShareAddress);
+        //QHostAddress address("192.168.8.100");
+        // m_udprecv->bind(address,5440,QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
+        m_udprecv->bind(5440, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
         connect(m_udprecv,&QUdpSocket::readyRead,[=](){
             qint64 pds = 0;
             while (m_udprecv->hasPendingDatagrams()) {
@@ -308,6 +310,7 @@ QMenu *BrowserWindow::createEditMenu()
                 }
                 qDebug()<< datagram;
             }
+
             if(tex != nullptr){
                 tex->clear();
                 for (int i = 0; i < m_udprecvsl.size(); i++){
@@ -319,8 +322,12 @@ QMenu *BrowserWindow::createEditMenu()
                     }
                     tex->insertPlainText(m_udprecvsl.at(i)+QString(";\n"));
                 }
+
+                plin->setText(m_udprecvsl.at(0));
             }
+
         });
+
         connect(&btn, &QPushButton::clicked, [=]() {
             m_udprecvsl.clear();
             tex->clear();
@@ -329,7 +336,7 @@ QMenu *BrowserWindow::createEditMenu()
         });
 
         if (dlg.exec() == QDialog::Accepted) {
-            QString get_mp = QString("http://root:root@")+lin.text()+"/";
+            QString get_mp = QString("http://root:root@")+plin->text()+"/";
             QStringList get_texlist = tex->toPlainText().split(QRegExp("[\r\n]"),QString::SkipEmptyParts);
             QString get_tex = get_texlist.join(",");
             get_tex.remove(',');
@@ -346,6 +353,15 @@ QMenu *BrowserWindow::createEditMenu()
             m_browser->bookmarkManagerWidget().writeIni(get_mp,get_iplst);
             m_browser->bookmarkManagerWidget().updateUI();
             m_tabWidget->setUrl(get_mp);
+
+        }
+
+        if(nullptr != plin){
+            delete plin;
+            plin = nullptr;
+        }
+
+        if(nullptr != tex){
             delete tex;
             tex = nullptr;
         }
@@ -760,7 +776,7 @@ QMenu *BrowserWindow::createEditMenu()
 #if defined(Q_OS_WIN)
                 QString curlth =  apppath+"/curl.exe";
 #else
-                QString curlth =  apppath+"/curl";
+                    QString curlth =  apppath+"/curl";
 #endif
                 QString confpath =  QString("file=@"+apppath+"/"+filelist.at(i));
                 QString httpurl = QString("http://root:root@")+qstr_url+"/cgi-bin/conf_upload.cgi";

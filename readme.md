@@ -21,4 +21,4 @@
 			
 6.源码获取：git clone https://github.com/MauricePong/webuiMS.git
 
-7.发布安装包路径：\\192.168.8.147\Product\webuiM\ver01
+7.发布安装包路径：\\192.168.8.147\Product\webuiM\ver04
